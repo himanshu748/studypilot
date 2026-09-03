@@ -38,6 +38,7 @@ const plan = {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  window.localStorage.removeItem("studypilot-theme");
   delete document.documentElement.dataset.theme;
 });
 
@@ -46,9 +47,20 @@ describe("StudyPilot", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "StudyPilot" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Syllabus source")).toBeInTheDocument();
-    expect(screen.getByLabelText("Weekly availability")).toBeInTheDocument();
+    expect(screen.getByText("Demo configuration")).toBeInTheDocument();
+    expect(screen.getByText("Seeded overloaded semester")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Build this week" })).toBeEnabled();
+  });
+
+  it("renders week labels from the returned session dates", async () => {
+    const shifted = { ...plan, sessions: sessions.map((session) => ({ ...session, start: session.start.replace("2026-09", "2027-10"), end: session.end.replace("2026-09", "2027-10") })) };
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(demoRequest), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(shifted), { status: 201 })));
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Build this week" }));
+    expect(await screen.findByRole("heading", { name: "Oct 7–12, 2027" })).toBeInTheDocument();
+    expect(screen.queryByText("Sep 7–12, 2026")).not.toBeInTheDocument();
   });
 
   it("turns the syllabus into a cited week and pauses before calendar writes", async () => {
@@ -86,5 +98,23 @@ describe("StudyPilot", () => {
     fireEvent.click(screen.getByRole("button", { name: "I missed the first session" }));
     expect(await screen.findByText("1 session rebalanced")).toBeInTheDocument();
     expect(screen.getByText("Rescheduled", { exact: true })).toBeInTheDocument();
+  });
+
+  it("retries a failed decision without rebuilding the plan", async () => {
+    const approved = { ...plan, status: "approved", sessions: sessions.map((session) => ({ ...session, status: "calendar" })) };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(demoRequest), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(plan), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ detail: "Decision unavailable" }), { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(approved), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Build this week" }));
+    await screen.findByText("8 sessions staged");
+    fireEvent.click(screen.getByRole("button", { name: "Add 8 sessions to calendar" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Retry decision" }));
+    expect(await screen.findByText("8 calendar events added")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/plans/plan-test/decision", expect.any(Object));
   });
 });

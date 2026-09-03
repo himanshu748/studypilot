@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { createPlan, decidePlan, getDemoRequest, markMissed } from "../api/client";
 import type { StudyPlan } from "../api/types";
@@ -6,17 +6,23 @@ import { CalendarChangeSet } from "../features/approval/CalendarChangeSet";
 import { ConflictInbox } from "../features/conflicts/ConflictInbox";
 import { ActivityTimeline } from "../features/run/ActivityTimeline";
 import { SyllabusMargin } from "../features/syllabus/SyllabusMargin";
-import { WeekLandscape } from "../features/week/WeekLandscape";
+import { getWeekSummary, WeekLandscape } from "../features/week/WeekLandscape";
 import { BookIcon, SparkIcon, ThemeIcon } from "../ui/Icons";
+import { applyTheme, getInitialTheme, type Theme } from "../ui/theme";
 
 type ViewState = "idle" | "loading" | "ready" | "busy" | "error";
+type RetryIntent = { kind: "build" } | { kind: "decide"; choice: "approved" | "rejected" } | { kind: "missed" };
 
 export function App() {
   const [state, setState] = useState<ViewState>("idle");
   const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [error, setError] = useState("");
   const [replanned, setReplanned] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [retryIntent, setRetryIntent] = useState<RetryIntent | null>(null);
+  const week = getWeekSummary(plan?.sessions || []);
+
+  useEffect(() => applyTheme(theme), [theme]);
 
   async function buildWeek() {
     setState("loading");
@@ -24,9 +30,11 @@ export function App() {
     try {
       const request = await getDemoRequest();
       setPlan(await createPlan(request));
+      setRetryIntent(null);
       setState("ready");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The week could not be built");
+      setRetryIntent({ kind: "build" });
       setState("error");
     }
   }
@@ -34,11 +42,14 @@ export function App() {
   async function decide(choice: "approved" | "rejected") {
     if (!plan) return;
     setState("busy");
+    setError("");
     try {
       setPlan(await decidePlan(plan, choice));
+      setRetryIntent(null);
       setState("ready");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The calendar decision failed");
+      setRetryIntent({ kind: "decide", choice });
       setState("error");
     }
   }
@@ -46,27 +57,34 @@ export function App() {
   async function missed() {
     if (!plan?.sessions[0]) return;
     setState("busy");
+    setError("");
     try {
       setPlan(await markMissed(plan, plan.sessions[0].id));
       setReplanned(true);
+      setRetryIntent(null);
       setState("ready");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The missed session could not be moved");
+      setRetryIntent({ kind: "missed" });
       setState("error");
     }
   }
 
   function toggleTheme() {
-    const next = theme === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = next;
-    setTheme(next);
+    setTheme((current) => current === "light" ? "dark" : "light");
+  }
+
+  function retry() {
+    if (retryIntent?.kind === "decide") void decide(retryIntent.choice);
+    else if (retryIntent?.kind === "missed") void missed();
+    else void buildWeek();
   }
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <a className="wordmark" href="#main"><BookIcon /><h1>StudyPilot</h1></a>
-        <div className="week-heading"><span>Week 37</span><strong>Sep 7–12, 2026</strong></div>
+        <div className="week-heading"><span>{week.label}</span><strong>{week.range}</strong></div>
         <span className="local-badge">
           {plan?.status === "approved"
             ? `Local demo · ${plan.sessions.length} calendar events synced`
@@ -75,7 +93,7 @@ export function App() {
         <button type="button" className="theme-button" onClick={toggleTheme} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}><ThemeIcon /></button>
       </header>
 
-      {error && <div className="error-banner" role="alert"><span><strong>Planning stopped.</strong> {error}</span><button type="button" onClick={buildWeek}>Try again</button></div>}
+      {error && <div className="error-banner" role="alert"><span><strong>Planning stopped.</strong> {error}</span><button type="button" onClick={retry}>Retry {retryIntent?.kind === "decide" ? "decision" : retryIntent?.kind === "missed" ? "replanning" : "build"}</button></div>}
 
       {state === "loading" ? (
         <main id="main" className="loading-workspace" aria-live="polite" aria-busy="true">
@@ -85,12 +103,12 @@ export function App() {
       ) : !plan ? (
         <main id="main" className="intake-workspace">
           <section className="intake-copy"><SparkIcon /><span>Academic planning agent</span><h2>Turn a long syllabus into a realistic week.</h2><p>StudyPilot extracts cited deadlines, respects your protected time and stages calendar changes for review.</p></section>
-          <form onSubmit={(event) => { event.preventDefault(); void buildWeek(); }}>
-            <label><span>Syllabus source</span><select aria-label="Syllabus source" defaultValue="seeded"><option value="seeded">Seeded overloaded semester</option></select></label>
-            <label><span>Weekly availability</span><input aria-label="Weekly availability" type="text" value="Mon–Sat · 15 available hours" readOnly autoComplete="off" /></label>
+          <section className="demo-config" aria-labelledby="demo-config-title">
+            <span className="demo-label" id="demo-config-title">Demo configuration</span>
+            <dl><div><dt>Syllabus scenario</dt><dd>Seeded overloaded semester</dd></div><div><dt>Weekly availability</dt><dd>Mon–Sat · 15 available hours</dd></div></dl>
             <ul><li>5 extracted items</li><li>1 ambiguous date held for confirmation</li><li>Family dinner protected</li></ul>
-            <button type="submit" className="primary-action"><SparkIcon />Build this week</button>
-          </form>
+            <button type="button" className="primary-action" onClick={() => void buildWeek()}><SparkIcon />Build this week</button>
+          </section>
         </main>
       ) : (
         <main id="main" className="planning-workspace">

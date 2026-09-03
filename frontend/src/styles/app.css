@@ -18,10 +18,11 @@
 .intake-copy > span { display: block; margin: 18px 0 10px; color: var(--green); font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.12em; }
 .intake-copy h2 { max-width: 620px; margin: 0; font: 650 clamp(38px, 5vw, 64px)/1.02 Georgia, "Times New Roman", serif; letter-spacing: -0.045em; }
 .intake-copy p { max-width: 560px; margin: var(--space-5) 0 0; color: var(--muted); font-size: 17px; line-height: 1.7; }
-.intake-workspace form { padding: var(--space-6); background: var(--sheet); border: 1px solid var(--rule-strong); }
-.intake-workspace label { display: grid; gap: var(--space-2); margin-bottom: var(--space-5); }
-.intake-workspace label > span { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-.intake-workspace select, .intake-workspace input { width: 100%; min-height: 46px; padding: 0 var(--space-3); color: var(--ink); background: var(--sheet-soft); border: 1px solid var(--rule); border-radius: var(--radius-control); }
+.demo-config { padding: var(--space-6); background: var(--sheet); border: 1px solid var(--rule-strong); }
+.demo-label, .demo-config dt { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.demo-config dl { display: grid; gap: var(--space-4); margin: var(--space-5) 0; }
+.demo-config dl div { padding-bottom: var(--space-3); border-bottom: 1px solid var(--rule); }
+.demo-config dd { margin: var(--space-2) 0 0; color: var(--ink); font-weight: 700; }
 .intake-workspace ul { margin: 0 0 var(--space-6); padding: var(--space-4) 0 var(--space-4) 24px; color: var(--muted); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); line-height: 1.8; }
 .primary-action, .secondary-action { padding: 0 var(--space-5); border-radius: var(--radius-control); font-weight: 750; cursor: pointer; }
 .primary-action { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); color: var(--button-ink); background: var(--green); border: 1px solid var(--green); }
@@ -81,7 +82,7 @@
 .session-block span { margin-top: 4px; font-size: 11px; line-height: 1.35; }
 .session-block small { margin-top: 7px; color: var(--amber); font-weight: 750; }
 .open-time { margin: 0; padding: 12px; color: var(--muted); font-size: 11px; font-style: italic; }
-.activity-timeline { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; padding: var(--space-4); list-style: none; border-top: 1px solid var(--rule); }
+.activity-timeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 0; padding: var(--space-4); list-style: none; border-top: 1px solid var(--rule); }
 .activity-timeline li { min-width: 0; display: flex; gap: var(--space-2); align-items: center; padding-right: var(--space-3); color: var(--muted); font-size: 10px; }
 .activity-timeline li + li { border-left: 1px solid var(--rule); padding-left: var(--space-3); }
 .activity-timeline span { width: 22px; height: 22px; flex: 0 0 auto; display: grid; place-items: center; color: var(--button-ink); background: var(--green); border-radius: 50%; font: 10px var(--mono); }
@@ -132,10 +133,9 @@
   .local-badge { grid-column: 1 / -1; justify-self: start; padding-bottom: var(--space-3); font-size: 11px; }
   .intake-workspace { margin: 6vh auto; display: block; padding: 0 var(--space-4); }
   .intake-copy h2 { font-size: 40px; }
-  .intake-workspace form { margin-top: var(--space-6); padding: var(--space-4); }
+  .demo-config { margin-top: var(--space-6); padding: var(--space-4); }
   .error-banner { margin: var(--space-3); align-items: flex-start; }
   .syllabus-margin { display: block; }
-  .course-source:nth-of-type(n+3) { display: none; }
   .week-landscape > header { min-height: 82px; align-items: flex-start; }
   .week-landscape > header > strong { margin-top: 4px; }
   .day-selector { display: grid; gap: var(--space-1); padding: var(--space-3); border-bottom: 1px solid var(--rule); }
