@@ -78,6 +78,8 @@ BEDROCK_MODEL_ID=your-model-id
 AWS_PROFILE=your-profile
 ```
 
+`amazon.nova-micro-v1:0` is an on-demand text-model example listed in `us-east-1`; verify access in your own account before enabling live mode. The Bedrock client explicitly caps each response at 512 tokens to bound quota reservation and cost.
+
 AWS usage may incur charges. Fixture mode is the recommended judging and development path. This repository does not claim an Amazon Bedrock AgentCore deployment; the runtime integration is the open-source Strands Agents SDK with an optional Bedrock model provider.
 
 ## Verification
@@ -100,7 +102,7 @@ exact approval -> 8 calendar events
 miss first session -> still 8 calendar events, one rescheduled
 ```
 
-Current automated coverage: 7 backend tests and 3 frontend interaction tests.
+Current automated coverage: 8 backend tests and 3 frontend interaction tests.
 
 ## Repository map
 

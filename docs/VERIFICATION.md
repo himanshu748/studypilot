@@ -4,7 +4,7 @@ Verified locally on 2026-09-02 in fixture mode.
 
 ## Automated checks
 
-- Backend: 7 tests passed.
+- Backend: 8 tests passed.
 - Backend lint: Ruff passed.
 - Frontend: 3 interaction tests passed.
 - Production frontend build: passed.

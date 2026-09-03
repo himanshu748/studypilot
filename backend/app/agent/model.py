@@ -29,7 +29,12 @@ def create_strands_agent(*, model_id: str, region_name: str) -> Agent:
     return Agent(
         name="studypilot_planner",
         description="Prioritizes confirmed academic work for a constraint-aware scheduler",
-        model=BedrockModel(model_id=model_id, region_name=region_name, temperature=0.0),
+        model=BedrockModel(
+            model_id=model_id,
+            region_name=region_name,
+            temperature=0.0,
+            max_tokens=512,
+        ),
         tools=[inspect_syllabus, inspect_availability],
         system_prompt=SYSTEM_PROMPT,
         callback_handler=None,
