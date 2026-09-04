@@ -4,6 +4,7 @@ import { createPlan, decidePlan, getDemoRequest, markMissed } from "../api/clien
 import type { StudyPlan } from "../api/types";
 import { CalendarChangeSet } from "../features/approval/CalendarChangeSet";
 import { ConflictInbox } from "../features/conflicts/ConflictInbox";
+import { Landing } from "../features/landing/Landing";
 import { ActivityTimeline } from "../features/run/ActivityTimeline";
 import { SyllabusMargin } from "../features/syllabus/SyllabusMargin";
 import { getWeekSummary, WeekLandscape } from "../features/week/WeekLandscape";
@@ -11,9 +12,11 @@ import { BookIcon, SparkIcon, ThemeIcon } from "../ui/Icons";
 import { applyTheme, getInitialTheme, type Theme } from "../ui/theme";
 
 type ViewState = "idle" | "loading" | "ready" | "busy" | "error";
+type Surface = "landing" | "demo";
 type RetryIntent = { kind: "build" } | { kind: "decide"; choice: "approved" | "rejected" } | { kind: "missed" };
 
 export function App() {
+  const [surface, setSurface] = useState<Surface>("landing");
   const [state, setState] = useState<ViewState>("idle");
   const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [error, setError] = useState("");
@@ -80,6 +83,24 @@ export function App() {
     else void buildWeek();
   }
 
+  if (surface === "landing") {
+    return (
+      <div className="app-shell landing-shell">
+        <header className="topbar landing-topbar">
+          <a className="wordmark" href="#main"><BookIcon /><h1>StudyPilot</h1></a>
+          <nav className="landing-nav" aria-label="Section navigation">
+            <a href="#how-it-works">How it works</a>
+            <a href="#architecture-title">Architecture</a>
+            <a href="#trust-title">Safety</a>
+          </nav>
+          <button type="button" className="nav-action" onClick={() => setSurface("demo")}>Try the demo</button>
+          <button type="button" className="theme-button" onClick={toggleTheme} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}><ThemeIcon /></button>
+        </header>
+        <Landing onStart={() => setSurface("demo")} />
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -90,6 +111,7 @@ export function App() {
             ? `Local demo · ${plan.sessions.length} calendar events synced`
             : "Local demo · no calendar writes yet"}
         </span>
+        <button type="button" className="nav-action subtle" onClick={() => setSurface("landing")}>Back to overview</button>
         <button type="button" className="theme-button" onClick={toggleTheme} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}><ThemeIcon /></button>
       </header>
 

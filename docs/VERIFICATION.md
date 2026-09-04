@@ -1,15 +1,15 @@
 # Verification record
 
-Verified locally in fixture mode on 2026-09-03.
+Verified locally in fixture mode on 2026-09-04.
 
 ## Automated checks
 
 - Backend: 8 tests passed.
 - Backend lint: Ruff passed.
-- Frontend: 5 interaction tests passed.
+- Frontend: 8 interaction tests passed.
 - Production frontend build: passed.
 
-The frontend coverage includes demo intake, dates derived from returned sessions, approval, missed-session replanning, and action-specific retries.
+The frontend coverage includes the landing-to-demo path, demo intake, dates derived from returned sessions, approval, missed-session replanning, and action-specific retries.
 
 ## Live workflow
 
@@ -22,7 +22,7 @@ The frontend coverage includes demo intake, dates derived from returned sessions
 
 ## UI checks
 
-The files in `docs/screenshots/` were captured from the running Vite application connected to its local FastAPI service. Desktop and 390 px mobile captures show the populated weekly plan. All four cited course sources remain present on mobile; responsive styling does not remove evidence.
+The files in `docs/screenshots/` were captured from the running Vite application. The public landing page was captured at 1440 px and 390 px with one page-level heading, no browser console errors, and no horizontal overflow. The populated planning-workspace captures use the local FastAPI fixture service. All four cited course sources remain present on mobile; responsive styling does not remove evidence.
 
 Earlier responsive checks covered 360, 768, 1024 and 1440 pixel widths with no horizontal overflow. The narrow layout displays one day at a time with accessible day controls.
 

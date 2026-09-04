@@ -4,7 +4,7 @@ StudyPilot turns an overloaded semester syllabus into a realistic weekly study p
 
 Built for the **Everyday Agents** track of the Agents for Humans hackathon using the [Strands Agents SDK](https://strandsagents.com/).
 
-![StudyPilot running weekly plan](docs/screenshots/desktop-plan.png)
+![StudyPilot public landing page](docs/screenshots/landing-desktop.png)
 
 ## Why it exists
 
@@ -102,9 +102,9 @@ exact approval -> 8 calendar events
 miss first session -> still 8 calendar events, one rescheduled
 ```
 
-Current automated coverage: 8 backend tests and 5 frontend interaction tests.
+Current automated coverage: 8 backend tests and 8 frontend interaction tests.
 
-Real running-app captures: [desktop weekly plan](docs/screenshots/desktop-plan.png) and [mobile weekly plan](docs/screenshots/mobile-plan.png). The mobile capture retains all four cited course sources.
+Real running-app captures: [desktop landing page](docs/screenshots/landing-desktop.png), [mobile landing page](docs/screenshots/landing-mobile.png), [desktop weekly plan](docs/screenshots/desktop-plan.png), and [mobile weekly plan](docs/screenshots/mobile-plan.png). The landing page was checked at 390, 768, and 1440 pixel widths with no horizontal overflow; the mobile planning capture retains all four cited course sources.
 
 ## Repository map
 

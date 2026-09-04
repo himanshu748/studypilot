@@ -42,9 +42,45 @@ afterEach(() => {
   delete document.documentElement.dataset.theme;
 });
 
+function openDemo() {
+  render(<App />);
+  fireEvent.click(screen.getAllByRole("button", { name: "Try the demo" })[0]);
+}
+
+describe("StudyPilot landing", () => {
+  it("opens on the landing page with navigation and a primary call to action", () => {
+    render(<App />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "StudyPilot" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /The syllabus is not the problem/ })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Section navigation" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "How it works" })).toHaveAttribute("href", "#how-it-works");
+    expect(screen.getAllByRole("button", { name: "Try the demo" }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Demo configuration")).not.toBeInTheDocument();
+  });
+
+  it("explains the agent, the architecture and the safety boundaries without claiming a deployment", () => {
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /How the agent works/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /What it is built on/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Trust and safety boundaries/ })).toBeInTheDocument();
+    expect(screen.getByText(/does not claim an Amazon Bedrock AgentCore deployment/)).toBeInTheDocument();
+    expect(screen.getByText(/Fixture mode is the default/)).toBeInTheDocument();
+  });
+
+  it("moves between the landing page and the demo without losing either surface", () => {
+    openDemo();
+    expect(screen.getByText("Demo configuration")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to overview" }));
+    expect(screen.getByRole("heading", { name: /The syllabus is not the problem/ })).toBeInTheDocument();
+  });
+});
+
 describe("StudyPilot", () => {
   it("starts with a specific empty state and labeled planning inputs", () => {
-    render(<App />);
+    openDemo();
 
     expect(screen.getByRole("heading", { name: "StudyPilot" })).toBeInTheDocument();
     expect(screen.getByText("Demo configuration")).toBeInTheDocument();
@@ -57,7 +93,7 @@ describe("StudyPilot", () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(demoRequest), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify(shifted), { status: 201 })));
-    render(<App />);
+    openDemo();
     fireEvent.click(screen.getByRole("button", { name: "Build this week" }));
     expect(await screen.findByRole("heading", { name: "Oct 7–12, 2027" })).toBeInTheDocument();
     expect(screen.queryByText("Sep 7–12, 2026")).not.toBeInTheDocument();
@@ -67,7 +103,7 @@ describe("StudyPilot", () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(demoRequest), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify(plan), { status: 201 })));
-    render(<App />);
+    openDemo();
 
     fireEvent.click(screen.getByRole("button", { name: "Build this week" }));
 
@@ -86,7 +122,7 @@ describe("StudyPilot", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(approved), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify(replanned), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    render(<App />);
+    openDemo();
     fireEvent.click(screen.getByRole("button", { name: "Build this week" }));
     await screen.findByText("8 sessions staged");
 
@@ -108,7 +144,7 @@ describe("StudyPilot", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ detail: "Decision unavailable" }), { status: 503 }))
       .mockResolvedValueOnce(new Response(JSON.stringify(approved), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    render(<App />);
+    openDemo();
     fireEvent.click(screen.getByRole("button", { name: "Build this week" }));
     await screen.findByText("8 sessions staged");
     fireEvent.click(screen.getByRole("button", { name: "Add 8 sessions to calendar" }));

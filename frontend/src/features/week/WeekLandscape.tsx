@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 
 import type { StudySession } from "../../api/types";
 
@@ -54,7 +54,14 @@ export function WeekLandscape({ sessions }: { sessions: StudySession[] }) {
     () => Object.fromEntries(days.map((day) => [day, sessions.filter((session) => session.start.startsWith(day))])),
     [days, sessions],
   );
-  if (!days.length) return <section className="week-landscape empty-week"><h2>No sessions staged</h2><p>Adjust the source material or availability, then rebuild the plan.</p></section>;
+  if (!days.length) {
+    return (
+      <section className="week-landscape empty-week" aria-label="Weekly study plan">
+        <h2>No sessions staged</h2>
+        <p>Adjust the source material or availability, then rebuild the plan.</p>
+      </section>
+    );
+  }
   return (
     <section className="week-landscape" aria-label="Weekly study plan">
       <header>
@@ -67,7 +74,7 @@ export function WeekLandscape({ sessions }: { sessions: StudySession[] }) {
           {days.map((day) => <option value={day} key={day}>{new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(dateFromKey(day))}</option>)}
         </select>
       </label>
-      <div className="week-grid">
+      <div className="week-grid" style={{ "--day-count": days.length } as CSSProperties}>
         {days.map((day) => (
           <section className={`day-column ${selectedDay === day ? "active" : ""}`} key={day}>
             <header><strong>{new Intl.DateTimeFormat(undefined, { weekday: "short", timeZone: "UTC" }).format(dateFromKey(day))}</strong><span>{new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" }).format(dateFromKey(day))}</span></header>
