@@ -22,6 +22,22 @@ def test_decisive_api_requires_approval_then_replans_without_duplication(tmp_pat
     assert client.get(f"/api/plans/{plan['id']}/calendar").json()["count"] == 8
 
     session_id = approved.json()["sessions"][0]["id"]
+    before = client.get(f"/api/plans/{plan['id']}/calendar").json()
+    blocked = client.post(f"/api/plans/{plan['id']}/sessions/{session_id}/missed")
+    assert blocked.status_code == 409
+    assert "before the assignment deadline" in blocked.json()["detail"]
+    assert client.get(f"/api/plans/{plan['id']}/calendar").json() == before
+
+    from datetime import datetime
+
+    session_id = next(
+        session["id"]
+        for session in approved.json()["sessions"]
+        if (
+            datetime.fromisoformat(session["end"]) - datetime.fromisoformat(session["start"])
+        ).total_seconds()
+        == 1800
+    )
     replanned = client.post(f"/api/plans/{plan['id']}/sessions/{session_id}/missed")
     assert replanned.status_code == 200
     assert client.get(f"/api/plans/{plan['id']}/calendar").json()["count"] == 8

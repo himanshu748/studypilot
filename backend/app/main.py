@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from app.agent.model import StrandsPlanningAdvisor, create_strands_agent
+from app.agent.model import AgentCorePlanningAdvisor, StrandsPlanningAdvisor, create_strands_agent
 from app.agent.orchestrator import PlanningWorkflow
 from app.config import Settings
 from app.domain.models import AvailabilityWindow, PlanRequest, ProtectedWindow, StudyPlan
@@ -62,13 +62,18 @@ def create_app(
     if active_workflow is None:
         advisor = None
         if not active_settings.fixture_mode:
-            if active_settings.bedrock_model_id is None:
+            if active_settings.agentcore_runtime_arn:
+                advisor = AgentCorePlanningAdvisor(
+                    active_settings.agentcore_runtime_arn, active_settings.aws_region
+                )
+            elif active_settings.bedrock_model_id is None:
                 raise ValueError("BEDROCK_MODEL_ID is required when fixture mode is disabled")
-            agent = create_strands_agent(
-                model_id=active_settings.bedrock_model_id,
-                region_name=active_settings.aws_region,
-            )
-            advisor = StrandsPlanningAdvisor(agent)
+            else:
+                agent = create_strands_agent(
+                    model_id=active_settings.bedrock_model_id,
+                    region_name=active_settings.aws_region,
+                )
+                advisor = StrandsPlanningAdvisor(agent)
         active_workflow = PlanningWorkflow(store=active_store, advisor=advisor)
 
     application.state.settings = active_settings
@@ -128,6 +133,17 @@ def create_app(
     async def calendar(plan_id: str) -> dict[str, object]:
         events = active_store.calendar_events(plan_id)
         return {"count": len(events), "events": [item.model_dump(mode="json") for item in events]}
+
+    if active_settings.serve_frontend:
+        from pathlib import Path
+
+        from app.web import mount_demo_ui
+
+        mount_demo_ui(
+            application,
+            fixture_mode=active_settings.fixture_mode,
+            directory=Path(__file__).resolve().parents[2] / "frontend" / "dist",
+        )
 
     return application
 

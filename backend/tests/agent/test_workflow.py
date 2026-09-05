@@ -61,7 +61,7 @@ def test_missed_session_replans_in_place_without_duplicate_calendar_event(tmp_pa
     workflow = PlanningWorkflow(store=store)
     plan = workflow.create(_request())
     workflow.decide(plan.id, approval_id=CALENDAR_APPROVAL_ID, choice="approved")
-    missed = plan.sessions[0]
+    missed = next(session for session in plan.sessions if session.duration_minutes == 30)
     before_ids = {event.session_id for event in store.calendar_events(plan.id)}
 
     revised = workflow.mark_missed(plan.id, missed.id)
@@ -72,3 +72,22 @@ def test_missed_session_replans_in_place_without_duplicate_calendar_event(tmp_pa
     moved = next(session for session in revised.sessions if session.id == missed.id)
     assert moved.status == "rescheduled"
     assert moved.start > missed.start
+    deadline = next(item.due_at for item in plan.items if item.id == moved.academic_item_id)
+    assert moved.end <= deadline
+
+
+def test_no_pre_deadline_slot_leaves_plan_and_calendar_unchanged(tmp_path) -> None:
+    import pytest
+
+    from app.agent.orchestrator import CALENDAR_APPROVAL_ID, PlanningWorkflow
+    from app.storage.sqlite import SQLiteStore
+
+    store = SQLiteStore(tmp_path / "study.sqlite3")
+    workflow = PlanningWorkflow(store=store)
+    plan = workflow.create(_request())
+    approved = workflow.decide(plan.id, approval_id=CALENDAR_APPROVAL_ID, choice="approved")
+    before = store.calendar_events(plan.id)
+    with pytest.raises(ValueError, match="before the assignment deadline"):
+        workflow.mark_missed(plan.id, plan.sessions[0].id)
+    assert store.get_plan(plan.id) == approved
+    assert store.calendar_events(plan.id) == before

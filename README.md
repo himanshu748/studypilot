@@ -18,9 +18,21 @@ Students rarely need another generic task list. They need help interpreting inco
 - Schedules eight sessions around a protected family commitment.
 - Detects the four-deadline cluster and explains the conflict.
 - Persists zero calendar events before approval and exactly eight after approval.
-- Rebalances a missed session in place without duplicating calendar events.
+- Rebalances a missed session before its deadline without duplicating calendar events; refuses changes when no suitable time remains.
 - Offers fixture mode for a complete, deterministic demo with no AWS account or model spend.
 - Offers an opt-in Amazon Bedrock path through a real Strands `Agent` with structured output and read-only tools.
+
+## One-command judging demo
+
+Prerequisites: Python 3.11+, uv, Node.js 20.19+ (22.12+ recommended), npm and Git.
+
+```bash
+python3 scripts/demo.py
+```
+
+Open `http://127.0.0.1:8000`. This installs locked dependencies, builds the frontend, and serves the UI and API from one local process. It forces scripted fixture mode even if your environment enables AWS, uses temporary demo data, and removes that data when stopped with Ctrl+C. First-time dependency installation needs internet access; the demo itself does not call a model. Use `--port 8201` to avoid a port conflict. After installation, `--skip-install` reuses dependencies.
+
+This is a local judging build, not a public hosted service. Live Bedrock inference and AgentCore deployment remain unverified.
 
 ## Architecture
 
@@ -49,7 +61,7 @@ The LLM is deliberately not the scheduler or the calendar writer. Strands suppli
 Prerequisites: Python 3.11+, [uv](https://docs.astral.sh/uv/) and Node.js 20+.
 
 ```bash
-git clone <your-public-repository-url>
+git clone https://github.com/himanshu748/studypilot.git
 cd studypilot
 
 cd backend
@@ -99,12 +111,19 @@ The decisive API test proves the safety invariant across the whole workflow:
 ```text
 create plan -> 0 calendar events
 exact approval -> 8 calendar events
-miss first session -> still 8 calendar events, one rescheduled
+miss a session with time available -> still 8 events, one rescheduled
+no suitable time before deadline -> conflict response, calendar unchanged
 ```
 
-Current automated coverage: 8 backend tests and 8 frontend interaction tests.
+Current automated coverage: 18 backend tests and 8 frontend interaction tests.
 
 Real running-app captures: [desktop landing page](docs/screenshots/landing-desktop.png), [mobile landing page](docs/screenshots/landing-mobile.png), [desktop weekly plan](docs/screenshots/desktop-plan.png), and [mobile weekly plan](docs/screenshots/mobile-plan.png). The landing page was checked at 390, 768, and 1440 pixel widths with no horizontal overflow; the mobile planning capture retains all four cited course sources.
+
+## Hackathon technology and outstanding requirements
+
+Both modes now execute the real Strands Agents SDK tool loop. The free demo uses an explicitly scripted model provider; live mode uses Amazon Bedrock directly or the optional AgentCore advisory service. See [AgentCore setup](docs/AGENTCORE.md).
+
+The [qualification record](docs/QUALIFICATION.md) distinguishes verified work from pending items. The [architecture PNG](docs/architecture.png) is ready for upload. The [Builder Center article](docs/BUILDER_POST.md) and [demo video outline](docs/DEMO_SCRIPT.md) are drafts. The Builder Center profile is verified; the public video, article publication, live cloud verification and final Devpost entry remain pending.
 
 ## Repository map
 

@@ -1,6 +1,9 @@
 import uuid
 from typing import Literal, Protocol
 
+from strands import tool
+
+from app.agent.fixture_model import fixture_advice
 from app.domain.models import PlanEvent, PlanningAdvice, PlanRequest, StudyPlan
 from app.planning.conflicts import detect_conflicts
 from app.planning.replanner import replan_session
@@ -17,13 +20,25 @@ class PlanningAdvisor(Protocol):
 
 class FixturePlanningAdvisor:
     def advise(self, syllabus: str, windows: list[dict[str, str]]) -> PlanningAdvice:
-        del windows
-        items = [item for item in extract_syllabus(syllabus).items if item.due_at]
-        ordered = sorted(items, key=lambda item: (item.due_at, -item.weight_percent))
-        return PlanningAdvice(
-            priority_item_ids=[item.id for item in ordered],
-            rationale="Confirmed deadlines are ordered by due time and grading weight.",
+        return fixture_advice(
+            {"syllabus": syllabus, "windows": windows}, fixture_plan, PlanningAdvice
         )
+
+
+@tool
+def fixture_plan(payload: dict) -> dict:
+    """Read the supplied syllabus and compute a deterministic fixture priority order."""
+    return _fixture_plan(payload["syllabus"], payload["windows"]).model_dump(mode="json")
+
+
+def _fixture_plan(syllabus: str, windows: list[dict[str, str]]) -> PlanningAdvice:
+    del windows
+    items = [item for item in extract_syllabus(syllabus).items if item.due_at]
+    ordered = sorted(items, key=lambda item: (item.due_at, -item.weight_percent))
+    return PlanningAdvice(
+        priority_item_ids=[item.id for item in ordered],
+        rationale="Confirmed deadlines are ordered by due time and grading weight.",
+    )
 
 
 class PlanningWorkflow:
@@ -39,7 +54,11 @@ class PlanningWorkflow:
             [window.model_dump(mode="json") for window in request.availability],
         )
         by_id = {item.id: item for item in confirmed}
-        ordered = [by_id[item_id] for item_id in advice.priority_item_ids if item_id in by_id]
+        ordered = [
+            by_id[item_id]
+            for item_id in dict.fromkeys(advice.priority_item_ids)
+            if item_id in by_id
+        ]
         ordered.extend(item for item in confirmed if item.id not in {entry.id for entry in ordered})
         sessions = build_schedule(ordered, request.availability, request.protected)
         plan = StudyPlan(
@@ -113,7 +132,13 @@ class PlanningWorkflow:
             raise KeyError(plan_id)
         if plan.status != "approved":
             raise ValueError("only approved plans can be replanned")
-        sessions = replan_session(plan.request, plan.sessions, session_id)
+        target = next((session for session in plan.sessions if session.id == session_id), None)
+        if target is None:
+            raise KeyError(session_id)
+        item = next((item for item in plan.items if item.id == target.academic_item_id), None)
+        if item is None or item.due_at is None:
+            raise ValueError("confirm the assignment deadline before replanning")
+        sessions = replan_session(plan.request, plan.sessions, session_id, deadline=item.due_at)
         revised = plan.model_copy(
             update={
                 "sessions": sessions,

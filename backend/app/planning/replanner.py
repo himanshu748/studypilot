@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from app.domain.models import PlanRequest, StudySession
 
@@ -7,6 +7,8 @@ def replan_session(
     request: PlanRequest,
     sessions: list[StudySession],
     session_id: str,
+    *,
+    deadline: datetime,
 ) -> list[StudySession]:
     target = next((session for session in sessions if session.id == session_id), None)
     if target is None:
@@ -15,7 +17,7 @@ def replan_session(
     duration = timedelta(minutes=target.duration_minutes)
     for window in sorted(request.availability, key=lambda item: item.start):
         cursor = max(window.start, target.end)
-        while cursor + duration <= window.end:
+        while cursor + duration <= min(window.end, deadline):
             end = cursor + duration
             blocked = any(
                 not (end <= item.start or cursor >= item.end) for item in request.protected
@@ -27,4 +29,6 @@ def replan_session(
                 )
                 return [revised if session.id == session_id else session for session in sessions]
             cursor += timedelta(minutes=30)
-    raise ValueError("no open window is available for the missed session")
+    raise ValueError(
+        "no open window is available before the assignment deadline; add availability to replan"
+    )

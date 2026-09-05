@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     )
 
     fixture_mode: bool = True
+    serve_frontend: bool = False
+    agentcore_runtime_arn: str | None = None
     database_path: Path = Path("./data/studypilot.sqlite3")
     aws_region: str = "us-east-1"
     bedrock_model_id: str | None = Field(default=None, validation_alias="BEDROCK_MODEL_ID")

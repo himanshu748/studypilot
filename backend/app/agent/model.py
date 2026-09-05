@@ -3,6 +3,8 @@ from typing import Any
 from strands import Agent, tool
 from strands.models import BedrockModel
 
+from app.agent.budget import ModelCallBudget, isolated_agent
+from app.agent.runtime_client import RuntimeClient
 from app.domain.models import PlanningAdvice
 from app.tools.syllabus import extract_syllabus
 
@@ -38,6 +40,7 @@ def create_strands_agent(*, model_id: str, region_name: str) -> Agent:
         tools=[inspect_syllabus, inspect_availability],
         system_prompt=SYSTEM_PROMPT,
         callback_handler=None,
+        hooks=[ModelCallBudget()],
     )
 
 
@@ -46,7 +49,9 @@ class StrandsPlanningAdvisor:
         self.agent = agent
 
     def advise(self, syllabus: str, windows: list[dict[str, str]]) -> PlanningAdvice:
-        result = self.agent(
+        agent = isolated_agent(self.agent)
+        self.last_run_agent = agent
+        result = agent(
             "Inspect the syllabus and availability, then return confirmed item IDs "
             "in priority order.\n"
             f"Syllabus:\n{syllabus}\nAvailability:\n{windows}",
@@ -55,3 +60,13 @@ class StrandsPlanningAdvisor:
         if not isinstance(result.structured_output, PlanningAdvice):
             raise ValueError("Strands agent did not return planning advice")
         return result.structured_output
+
+
+class AgentCorePlanningAdvisor:
+    def __init__(self, arn: str, region: str):
+        self.runtime = RuntimeClient(arn, region)
+
+    def advise(self, syllabus: str, windows: list[dict[str, str]]) -> PlanningAdvice:
+        return PlanningAdvice.model_validate(
+            self.runtime.invoke({"syllabus": syllabus, "windows": windows})
+        )
