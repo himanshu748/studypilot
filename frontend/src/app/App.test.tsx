@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+import { readRuntimeConfiguration } from "../features/connection/health";
 
 const demoRequest = {
   syllabus: "# Semester\n## Cognitive Science 201\n- Research Brief | due 2026-09-11T17:00 | effort 180m | weight 25%",
@@ -82,6 +83,7 @@ describe("StudyPilot landing", () => {
 
 describe("StudyPilot", () => {
   it("identifies external inference without claiming Bedrock access or offline processing", async () => {
+    vi.mocked(readRuntimeConfiguration).mockResolvedValueOnce({ runtime_mode: "openai-compatible", fixture_mode: false, model_configured: true });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
       runtime_mode: "openai-compatible", fixture_mode: false,
       aws_calls_enabled: false, model_access: "not_verified",

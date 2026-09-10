@@ -1,10 +1,9 @@
-import os
-
 from pydantic import BaseModel, Field
 
 from app.agent.model import StrandsPlanningAdvisor, create_strands_agent
 from app.agent.orchestrator import FixturePlanningAdvisor
 from app.agent.runtime_evidence import evidence
+from app.agent.runtime_provider import runtime_model_configuration
 from app.domain.models import AvailabilityWindow
 
 
@@ -25,8 +24,7 @@ def advise(payload: dict, *, fixture: bool = False):
             "usage": {},
         }
     agent = create_strands_agent(
-        model_id=os.environ["BEDROCK_MODEL_ID"],
-        region_name=os.getenv("AWS_REGION", "us-east-1"),
+        **runtime_model_configuration(),
     )
     advisor = StrandsPlanningAdvisor(agent)
     result = advisor.advise(request.syllabus, windows)

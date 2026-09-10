@@ -1,6 +1,7 @@
 import { InteractivePreview } from "./InteractivePreview";
 
 export function Landing({ onStart }: { onStart: () => void }) {
+  const hosted = import.meta.env.VITE_HOSTED === "true";
   return (
     <main id="main" className="landing">
       <section className="landing-hero" aria-labelledby="hero-title">
@@ -26,7 +27,7 @@ export function Landing({ onStart }: { onStart: () => void }) {
         </div>
       </section>
       <section className="landing-control" aria-labelledby="architecture-title">
-        <div className="control-copy"><h2 id="architecture-title">You get the final say.</h2><p>Nothing goes into your local calendar until you approve it. Download your approved plan as a calendar file when you're ready.</p></div>
+        <div className="control-copy"><h2 id="architecture-title">You get the final say.</h2><p>Nothing goes into your plan's calendar until you approve it. Download your approved plan as a calendar file when you're ready.</p></div>
         <div className="control-actions"><span>Review the sessions</span><span>Approve your plan</span><span>Download your calendar</span></div>
       </section>
       <section className="landing-questions" aria-labelledby="trust-title">
@@ -34,12 +35,12 @@ export function Landing({ onStart }: { onStart: () => void }) {
         <div className="question-list">
           <details><summary>Can I use my own coursework?</summary><p>Yes. Enter course names, tasks, deadlines and effort in the planner. Sample coursework is also available if you'd like to try the workflow first.</p></details>
           <details><summary>What if my deadlines don't fit?</summary><p>The planner checks the available time before each deadline. If the work cannot fit, adjust your study windows or coursework and try again.</p></details>
-          <details><summary>Does this connect to my calendar?</summary><p>Not automatically. Approved events are saved in the app's local calendar. You can download an ICS file and import it into your calendar yourself.</p></details>
-          <details><summary>Where are my plans saved?</summary><p>On the machine running StudyPilot. Reopen them from Saved plans. There is no cloud account or cross-device sync in this version.</p></details>
+          <details><summary>Does this connect to my calendar?</summary><p>Not automatically. Approved events are saved in the app. You can download an ICS file and import it into your calendar yourself.</p></details>
+          <details><summary>Where are my plans saved?</summary><p>{hosted ? "On the server, in a store tied to this browser session. Reopen them from Saved plans. Keep your cookies: clearing them loses access. Use fictional or non-sensitive coursework." : "On the machine running StudyPilot. Reopen them from Saved plans. There is no cloud account or cross-device sync in this version."}</p></details>
         </div>
       </section>
       <section className="landing-close" aria-labelledby="close-title"><h2 id="close-title">Make a little room.</h2><button type="button" className="primary-action" onClick={onStart}>Open planner</button></section>
-      <footer className="landing-footer"><a className="footer-mark" href="#main"><img src="/favicon.svg" alt="" width="32" height="32" /><span>StudyPilot</span></a><p>Coursework, with room for everything else.</p></footer>
+      <footer className="landing-footer"><a className="footer-mark" href="#overview"><img src="/favicon.svg" alt="" width="32" height="32" /><span>StudyPilot</span></a><p>Coursework, with room for everything else.</p></footer>
     </main>
   );
 }

@@ -1,24 +1,24 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
 export function InteractivePreview() {
   const [protectedTuesday, setProtectedTuesday] = useState(false);
   const writing = useRef<HTMLDivElement>(null);
-  const previousTop = useRef<number | null>(null);
+  const previousRect = useRef<DOMRect | null>(null);
   const animation = useRef<Animation | null>(null);
 
   useLayoutEffect(() => {
     const card = writing.current;
     if (!card) return;
     animation.current?.cancel();
-    const top = card.getBoundingClientRect().top;
+    const rect = card.getBoundingClientRect();
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (previousTop.current !== null && !reduced && card.animate) {
+    if (previousRect.current !== null && !reduced && card.animate) {
       animation.current = card.animate(
-        [{ transform: `translateY(${previousTop.current - top}px)` }, { transform: "translateY(0)" }],
+        [{ transform: `translate(${previousRect.current.left - rect.left}px, ${previousRect.current.top - rect.top}px)` }, { transform: "translate(0, 0)" }],
         { duration: 420, easing: "cubic-bezier(0.16, 1, 0.3, 1)" },
       );
     }
-    previousTop.current = null;
+    previousRect.current = null;
     return () => animation.current?.cancel();
   }, [protectedTuesday]);
 
@@ -29,7 +29,7 @@ export function InteractivePreview() {
       <div className="week-controls">
         <button type="button" className="preview-toggle" aria-pressed={protectedTuesday}
           onClick={() => {
-            previousTop.current = writing.current?.getBoundingClientRect().top ?? null;
+            previousRect.current = writing.current?.getBoundingClientRect() ?? null;
             setProtectedTuesday((current) => !current);
           }} aria-controls="sample-week">
           <span className="toggle-track" aria-hidden="true"><span /></span>
@@ -38,15 +38,15 @@ export function InteractivePreview() {
       </div>
       <div className="sample-week" id="sample-week">
         {["MON", "TUE", "WED", "THU"].map((day, index) => (
-          <span key={day} className="sample-day" style={{ gridRow: index + 1 }}>{day}<b>{String(7 + index).padStart(2, "0")}</b></span>
+          <span key={day} className="sample-day" style={{ "--day": index + 1 } as CSSProperties}>{day}<b>{String(7 + index).padStart(2, "0")}</b></span>
         ))}
         <div className="preview-session sample-research"><small>18:00-19:30 · Cognitive Science</small><strong>Outline the research brief</strong></div>
-        <div ref={writing} className="preview-session writing sample-writing" style={{ gridRow: protectedTuesday ? 4 : 2 }} data-day={protectedTuesday ? "Thursday" : "Tuesday"}>
+        <div ref={writing} className="preview-session writing sample-writing" style={{ "--day": protectedTuesday ? 4 : 2 } as CSSProperties} data-day={protectedTuesday ? "Thursday" : "Tuesday"}>
           <small>18:00-19:00 · Academic Writing</small><strong>Shape the first draft</strong>
           <span className="session-move-label">{protectedTuesday ? "Moved to Thursday" : "Tuesday evening"}</span>
         </div>
         <div className="preview-protected sample-family"><div><strong>Family dinner</strong><small>Wednesday stays protected</small></div></div>
-        <div className="sample-free" style={{ gridRow: protectedTuesday ? 2 : 4 }} key={String(protectedTuesday)}>
+        <div className="sample-free" style={{ "--day": protectedTuesday ? 2 : 4 } as CSSProperties} key={String(protectedTuesday)}>
           <span>{protectedTuesday ? "Tuesday is yours." : "An evening to spare."}</span>
         </div>
       </div>

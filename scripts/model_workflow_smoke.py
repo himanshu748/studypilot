@@ -28,13 +28,17 @@ def main():
     with TemporaryDirectory(prefix=service + "-live-smoke-") as temp:
         os.environ[prefix + "_DATABASE_PATH"] = str(Path(temp) / "smoke.sqlite3")
         os.environ[prefix + "_SERVE_FRONTEND"] = "false"
-        from app.main import create_app
         from fastapi.testclient import TestClient
+
+        from app.main import create_app
 
         application = create_app()
         with TestClient(application) as client:
             health = client.get("/api/health").json()
-            assert health["runtime_mode"] == "openai-compatible"
+            expected_runtime = (
+                "agentcore" if settings.agentcore_runtime_arn else "openai-compatible"
+            )
+            assert health["runtime_mode"] == expected_runtime
             assert health["fixture_mode"] is False
             if service == "studypilot":
                 from app.main import seeded_request
@@ -55,32 +59,28 @@ def main():
             if service == "scamshield":
                 assert result["assessment"]["level"] == "high_risk"
                 assert result["report"] is None
-                assert (
-                    client.get(route + "/" + result["id"] + "/report-count").json()[
-                        "count"
-                    ]
-                    == 0
-                )
+                assert client.get(route + "/" + result["id"] + "/report-count").json()["count"] == 0
             else:
-                assert (
-                    client.get(route + "/" + result["id"] + "/calendar").json()["count"]
-                    == 0
-                )
-            agent = application.state.workflow.advisor.last_run_agent
-            names = [
-                block["toolUse"]["name"]
-                for message in agent.messages
-                for block in message.get("content", [])
-                if "toolUse" in block
-            ]
+                assert client.get(route + "/" + result["id"] + "/calendar").json()["count"] == 0
+            advisor = application.state.workflow.advisor
+            if settings.agentcore_runtime_arn:
+                remote_evidence = advisor.runtime.last_evidence
+                assert remote_evidence["engine"] == "strands-openai-compatible"
+                names = remote_evidence["tool_calls"]
+            else:
+                agent = advisor.last_run_agent
+                names = [
+                    block["toolUse"]["name"]
+                    for message in agent.messages
+                    for block in message.get("content", [])
+                    if "toolUse" in block
+                ]
             expected_tools = (
                 {"inspect_syllabus", "inspect_availability"}
                 if service == "studypilot"
                 else {"inspect_message", "run_local_checks"}
             )
-            assert expected_tools.issubset(names), (
-                "Required read-only tool use was not recorded"
-            )
+            assert expected_tools.issubset(names), "Required read-only tool use was not recorded"
             decision = client.post(
                 route + "/" + result["id"] + "/decision",
                 json={"approval_id": result["approval_id"], "choice": "approved"},
@@ -88,23 +88,15 @@ def main():
             assert decision.status_code == 200
             assert decision.json()["status"] == terminal
             if service == "scamshield":
-                assert (
-                    client.get(route + "/" + result["id"] + "/report-count").json()[
-                        "count"
-                    ]
-                    == 1
-                )
+                assert client.get(route + "/" + result["id"] + "/report-count").json()["count"] == 1
             else:
-                assert (
-                    client.get(route + "/" + result["id"] + "/calendar").json()["count"]
-                    > 0
-                )
+                assert client.get(route + "/" + result["id"] + "/calendar").json()["count"] > 0
             print(
                 json.dumps(
                     {
                         "service": service,
                         "model": settings.llm_model_id,
-                        "runtime": "real-external-model",
+                        "runtime": expected_runtime,
                         "input": "fictional",
                         "tool_names": names,
                         "approval_gate_verified": True,
@@ -119,7 +111,5 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as error:  # noqa: BLE001 - never expose provider bodies or credentials
-        print(
-            json.dumps({"workflow_verified": False, "error_type": type(error).__name__})
-        )
+        print(json.dumps({"workflow_verified": False, "error_type": type(error).__name__}))
         raise SystemExit(1) from None

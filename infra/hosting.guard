@@ -1,0 +1,20 @@
+let instances = Resources.*[ Type == 'AWS::EC2::Instance' ]
+rule encrypted_small_host when %instances !empty {
+    %instances {
+        Properties.InstanceType == 't4g.small'
+        Properties.MetadataOptions.HttpTokens == 'required'
+        Properties.CreditSpecification.CPUCredits == 'standard'
+        Properties.BlockDeviceMappings.*.Ebs.Encrypted == true
+        Properties.BlockDeviceMappings.*.Ebs.DeleteOnTermination == false
+        DeletionPolicy == 'Retain'
+        UpdateReplacePolicy == 'Retain'
+    }
+}
+let groups = Resources.*[ Type == 'AWS::EC2::SecurityGroup' ]
+rule only_public_web_ports when %groups !empty {
+    %groups.Properties.SecurityGroupIngress.* {
+        IpProtocol == 'tcp'
+        FromPort IN [80, 443]
+        ToPort IN [80, 443]
+    }
+}

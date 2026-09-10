@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSurfaceNavigation } from "./useSurfaceNavigation";
 import { ConnectionDetails } from "../features/connection/ConnectionDetails";
 
 import { createPlan, decidePlan, getDemoRequest, listPlans, markMissed } from "../api/client";
@@ -17,11 +18,10 @@ import { SavedPlans } from "../features/syllabus/SavedPlans";
 import { downloadCalendar } from "../features/approval/calendar";
 
 type ViewState = "idle" | "loading" | "ready" | "busy" | "error";
-type Surface = "landing" | "demo";
 type RetryIntent = { kind: "build"; request: PlanRequest | null } | { kind: "decide"; choice: "approved" | "rejected" } | { kind: "missed"; sessionId: string };
 
 export function App() {
-  const [surface, setSurface] = useState<Surface>(window.location.hash === "#overview" ? "landing" : "demo");
+  const { surface, openSurface } = useSurfaceNavigation();
   const [state, setState] = useState<ViewState>("idle");
   const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [error, setError] = useState("");
@@ -169,31 +169,31 @@ export function App() {
     return (
       <div className="app-shell landing-shell">
         <header className="topbar landing-topbar">
-          <a className="wordmark" href="#main"><img src="/favicon.svg" alt="" width="36" height="36" /><h1>StudyPilot</h1></a>
+          <a className="wordmark" href="#overview" onClick={(event) => { event.preventDefault(); openSurface("landing"); }}><img src="/favicon.svg" alt="" width="36" height="36" /><h1>StudyPilot</h1></a>
           <nav className="landing-nav" aria-label="Section navigation">
             <a href="#how-it-works">How it works</a>
             <a href="#architecture-title">Your calendar</a>
             <a href="#trust-title">Questions</a>
           </nav>
-          <button type="button" className="nav-action" onClick={() => setSurface("demo")}>Open planner</button>
+          <button type="button" className="nav-action" onClick={() => openSurface("demo")}>Open planner</button>
           <button type="button" className="theme-button" onClick={toggleTheme} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}><ThemeIcon /></button>
         </header>
-        <Landing onStart={() => setSurface("demo")} />
+        <Landing onStart={() => openSurface("demo")} />
       </div>
     );
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell studypilot-workspace">
       <header className="topbar">
-        <a className="wordmark" href="#main"><img src="/favicon.svg" alt="" width="36" height="36" /><h1>StudyPilot</h1></a>
+        <a className="wordmark" href="#overview" onClick={(event) => { event.preventDefault(); openSurface("landing"); }}><img src="/favicon.svg" alt="" width="36" height="36" /><h1>StudyPilot</h1></a>
         <div className="week-heading"><span>{week.label}</span><strong>{week.range}</strong></div>
         <span className="local-badge">
           {plan?.status === "approved"
             ? `This plan · ${plan.sessions.length} local calendar events`
             : "This plan · no calendar writes yet"}
         </span>
-        <button type="button" className="nav-action subtle" disabled={revising || state === "loading"} onClick={() => setSurface("landing")}>Back to overview</button>
+        <button type="button" className="nav-action subtle" disabled={revising || state === "loading"} onClick={() => openSurface("landing")}>Back to overview</button>
         <button type="button" className="theme-button" onClick={toggleTheme} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}><ThemeIcon /></button>
       </header>
 
