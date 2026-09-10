@@ -160,7 +160,7 @@ scripted provider. The real AgentCore → Strands → Groq workflow passed, incl
 plan creation and calendar approval. Public full-app hosting and credential-free judge access
 are verified with bounded allowances. See [hosted access](docs/HOSTED.md).
 
-The [hosted architecture PNG](docs/architecture-hosted.png) documents the deployed build. The [narrated hosted walkthrough](https://youtu.be/MQl8zq_YT_A) is public on YouTube. The final Devpost submission and optional Builder article publication remain separate, unverified steps.
+The [hosted architecture PNG](docs/architecture-hosted.png) documents the deployed build. The [narrated hosted walkthrough](https://youtu.be/MQl8zq_YT_A) is public on YouTube. The [Devpost entry](https://devpost.com/software/studypilot-dmkznc) is submitted, and the [AWS Builder build article](https://builder.aws.com/content/3J8xQ12NStyGMdW10nyrA16CSpr/agents-for-humans-building-studypilot-with-strands-and-agentcore) is publicly published and linked in the submission. These publication states were verified on September 10, 2026.
 
 ## Repository map
 
