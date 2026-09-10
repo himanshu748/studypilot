@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 
@@ -36,6 +36,8 @@ const plan = {
   ],
 };
 
+beforeEach(() => { window.location.hash = "#overview"; });
+
 afterEach(() => {
   vi.unstubAllGlobals();
   window.localStorage.removeItem("studypilot-theme");
@@ -44,7 +46,8 @@ afterEach(() => {
 
 function openDemo() {
   render(<App />);
-  fireEvent.click(screen.getAllByRole("button", { name: "Try the demo" })[0]);
+  fireEvent.click(screen.getAllByRole("button", { name: "Open planner" })[0]);
+  fireEvent.click(screen.getByText("Explore with sample coursework"));
 }
 
 describe("StudyPilot landing", () => {
@@ -52,39 +55,50 @@ describe("StudyPilot landing", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { level: 1, name: "StudyPilot" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /The syllabus is not the problem/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Your week, within reach/ })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Section navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "How it works" })).toHaveAttribute("href", "#how-it-works");
-    expect(screen.getAllByRole("button", { name: "Try the demo" }).length).toBeGreaterThan(0);
-    expect(screen.queryByText("Demo configuration")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "How it works" })[0]).toHaveAttribute("href", "#how-it-works");
+    expect(screen.getAllByRole("button", { name: "Open planner" }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Your coursework")).not.toBeInTheDocument();
   });
 
-  it("explains the agent, the architecture and the safety boundaries without claiming a deployment", () => {
+  it("explains the product without hackathon or implementation copy", () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /How the agent works/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /What it is built on/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Trust and safety boundaries/ })).toBeInTheDocument();
-    expect(screen.getByText(/does not claim an Amazon Bedrock AgentCore deployment/)).toBeInTheDocument();
-    expect(screen.getByText(/Fixture mode is the default/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Add your coursework" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "You get the final say." })).toBeInTheDocument();
+    expect(screen.getByText(/Not automatically. Approved events/)).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/hackathon|Bedrock|Strands|fixture|FastAPI|SQLite/i);
   });
 
   it("moves between the landing page and the demo without losing either surface", () => {
     openDemo();
-    expect(screen.getByText("Demo configuration")).toBeInTheDocument();
+    expect(screen.getByText("Your coursework")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Back to overview" }));
-    expect(screen.getByRole("heading", { name: /The syllabus is not the problem/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Your week, within reach/ })).toBeInTheDocument();
   });
 });
 
 describe("StudyPilot", () => {
+  it("identifies external inference without claiming Bedrock access or offline processing", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      runtime_mode: "openai-compatible", fixture_mode: false,
+      aws_calls_enabled: false, model_access: "not_verified",
+    }), { status: 200 })));
+    openDemo();
+    fireEvent.click(screen.getByRole("button", { name: "Connection details" }));
+    expect(await screen.findByText("External model configured · inference not verified")).toBeInTheDocument();
+    expect(screen.getByText(/Model requests go to your configured endpoint/)).toBeInTheDocument();
+    expect(screen.queryByText(/Your plans are processed on this machine/)).not.toBeInTheDocument();
+  });
+
   it("starts with a specific empty state and labeled planning inputs", () => {
     openDemo();
 
     expect(screen.getByRole("heading", { name: "StudyPilot" })).toBeInTheDocument();
-    expect(screen.getByText("Demo configuration")).toBeInTheDocument();
-    expect(screen.getByText("Seeded overloaded semester")).toBeInTheDocument();
+    expect(screen.getByText("Your coursework")).toBeInTheDocument();
+    expect(screen.getByText(/Seeded overloaded semester/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Build this week" })).toBeEnabled();
   });
 
@@ -111,6 +125,13 @@ describe("StudyPilot", () => {
     expect(screen.getByText("8 sessions staged")).toBeInTheDocument();
     expect(screen.getByText("Needs date confirmation")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add 8 sessions to calendar" })).toBeEnabled();
+    const activity = screen.getByText("Plan activity").closest("details")!;
+    const approval = screen.getByRole("button", { name: "Add 8 sessions to calendar" });
+    expect(activity).not.toHaveAttribute("open");
+    expect(approval.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(screen.getByText("Plan activity"));
+    expect(activity).toHaveAttribute("open");
+    expect(screen.getByRole("list", { name: "Agent activity" })).toBeVisible();
   });
 
   it("writes only after exact approval and replans a missed session in place", async () => {
@@ -131,7 +152,8 @@ describe("StudyPilot", () => {
     expect(await screen.findByText("8 calendar events added")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/plans/plan-test/decision", expect.objectContaining({ body: JSON.stringify({ approval_id: "write-calendar-events", choice: "approved" }) }));
 
-    fireEvent.click(screen.getByRole("button", { name: "I missed the first session" }));
+    fireEvent.change(screen.getByLabelText("Missed a study session?"), { target: { value: "session-0" } });
+    fireEvent.click(screen.getByRole("button", { name: "Move selected session" }));
     expect(await screen.findByText("1 session rebalanced")).toBeInTheDocument();
     expect(screen.getByText("Rescheduled", { exact: true })).toBeInTheDocument();
   });

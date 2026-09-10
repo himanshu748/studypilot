@@ -1,4 +1,7 @@
 .DS_Store
+/backend/data/
+/data/
+/output/
 .agentcore/
 .env
 .venv/

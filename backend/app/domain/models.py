@@ -26,6 +26,8 @@ class AvailabilityWindow(BaseModel):
 
     @model_validator(mode="after")
     def validate_order(self):
+        if self.start.tzinfo is not None or self.end.tzinfo is not None:
+            raise ValueError("Use local calendar times without a timezone offset")
         if self.end <= self.start:
             raise ValueError("availability end must be after start")
         return self
@@ -39,6 +41,19 @@ class PlanRequest(BaseModel):
     syllabus: str = Field(min_length=20, max_length=100_000)
     availability: list[AvailabilityWindow] = Field(min_length=1, max_length=40)
     protected: list[ProtectedWindow] = Field(default_factory=list, max_length=40)
+
+    @model_validator(mode="after")
+    def validate_windows(self):
+        all_windows = [*self.availability, *self.protected]
+        if any(w.start.tzinfo is not None or w.end.tzinfo is not None for w in all_windows):
+            raise ValueError("Use local calendar times without a timezone offset")
+        ordered = sorted(self.availability, key=lambda w: w.start)
+        if any(
+            current.start < previous.end
+            for previous, current in zip(ordered, ordered[1:], strict=False)
+        ):
+            raise ValueError("Availability windows must not overlap")
+        return self
 
 
 class StudySession(BaseModel):

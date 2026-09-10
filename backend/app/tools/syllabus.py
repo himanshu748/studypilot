@@ -1,5 +1,7 @@
 import hashlib
+import json
 import re
+from collections import Counter
 from datetime import datetime
 
 from app.domain.models import AcademicItem, SyllabusExtraction
@@ -30,6 +32,8 @@ def extract_syllabus(content: str) -> SyllabusExtraction:
             due_at = datetime.fromisoformat(due_text)
         except ValueError:
             due_at = None
+        if due_at is not None and due_at.tzinfo is not None:
+            raise ValueError("Use local deadline times without timezone offsets")
         items.append(
             AcademicItem(
                 id=_item_id(course, match.group("title")),
@@ -45,4 +49,18 @@ def extract_syllabus(content: str) -> SyllabusExtraction:
         )
     if not items:
         raise ValueError("no academic items were found in the syllabus")
+    # Preserve existing identities for unique tasks. Repeated labels need a
+    # deadline and occurrence identity so advisory lookup and calendar upserts
+    # cannot collapse separate coursework into one item.
+    counts = Counter(item.id for item in items)
+    occurrences: Counter[tuple[str, str, str | None]] = Counter()
+    for index, item in enumerate(items):
+        if counts[item.id] == 1:
+            continue
+        identity = (item.course, item.title, item.due_at.isoformat() if item.due_at else None)
+        occurrence = occurrences[identity]
+        occurrences[identity] += 1
+        encoded = json.dumps([*identity, occurrence], ensure_ascii=False, separators=(",", ":"))
+        digest = hashlib.sha256(encoded.encode()).hexdigest()[:12]
+        items[index] = item.model_copy(update={"id": f"item-{digest}"})
     return SyllabusExtraction(items=items)

@@ -5,7 +5,7 @@ export function SyllabusMargin({ items }: { items: AcademicItem[] }) {
   const courses = Array.from(new Set(items.map((item) => item.course)));
   return (
     <aside className="syllabus-margin" aria-label="Extracted syllabus and deadlines">
-      <header><h2>Syllabus &amp; deadlines</h2><span>{courses.length} sources</span></header>
+      <header><h2>Syllabus &amp; deadlines</h2><span>{courses.length} {courses.length === 1 ? "source" : "sources"}</span></header>
       {courses.map((course) => (
         <section className="course-source" key={course}>
           <h3>{course}</h3>

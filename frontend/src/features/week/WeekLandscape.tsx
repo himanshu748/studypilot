@@ -1,6 +1,7 @@
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 
 import type { StudySession } from "../../api/types";
+import { durationLabel } from "../syllabus/timeBudget";
 
 function time(value: string) {
   return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -36,7 +37,7 @@ export function getWeekSummary(sessions: StudySession[]) {
   const end = dateFromKey(days[days.length - 1]);
   const sameMonth = start.getUTCMonth() === end.getUTCMonth() && start.getUTCFullYear() === end.getUTCFullYear();
   const month = new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" }).format(start);
-  const range = sameMonth
+  const range = days.length === 1 ? `${month} ${start.getUTCDate()}, ${start.getUTCFullYear()}` : sameMonth
     ? `${month} ${start.getUTCDate()}–${end.getUTCDate()}, ${end.getUTCFullYear()}`
     : `${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" }).format(start)}–${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(end)}`;
   return { label: `Week ${isoWeek(start)}`, range };
@@ -46,14 +47,17 @@ export function WeekLandscape({ sessions }: { sessions: StudySession[] }) {
   const days = useMemo(() => getWeekDays(sessions), [sessions]);
   const summary = useMemo(() => getWeekSummary(sessions), [sessions]);
   const [selectedDay, setSelectedDay] = useState(days[0] || "");
+  const [view, setView] = useState<"week" | "agenda">("week");
   useEffect(() => {
     if (!days.includes(selectedDay)) setSelectedDay(days[0] || "");
   }, [days, selectedDay]);
   const courses = useMemo(() => [...new Set(sessions.map((session) => session.course))].sort(), [sessions]);
   const byDay = useMemo(
-    () => Object.fromEntries(days.map((day) => [day, sessions.filter((session) => session.start.startsWith(day))])),
+    () => Object.fromEntries(days.map((day) => [day, sessions.filter((session) => session.start.startsWith(day)).sort((a, b) => a.start.localeCompare(b.start))])),
     [days, sessions],
   );
+  const totalMinutes = sessions.reduce((total, session) => total + (new Date(session.end).getTime() - new Date(session.start).getTime()) / 60_000, 0);
+  const calendarSaved = sessions.every(session => session.status !== "staged");
   if (!days.length) {
     return (
       <section className="week-landscape empty-week" aria-label="Weekly study plan">
@@ -66,15 +70,17 @@ export function WeekLandscape({ sessions }: { sessions: StudySession[] }) {
     <section className="week-landscape" aria-label="Weekly study plan">
       <header>
         <div><span>{summary.label}</span><h2>{summary.range}</h2></div>
-        <strong>{sessions.length} sessions staged</strong>
+        <strong>{sessions.length} sessions {calendarSaved ? "in calendar" : "staged"}</strong>
       </header>
+      <div className="schedule-toolbar"><p><strong>{durationLabel(totalMinutes)}</strong> of study · {courses.length} {courses.length === 1 ? "course" : "courses"} <span>Local calendar time</span></p><div className="view-switch" role="group" aria-label="Schedule view"><button type="button" aria-pressed={view === "week"} onClick={() => setView("week")}>Week</button><button type="button" aria-pressed={view === "agenda"} onClick={() => setView("agenda")}>Agenda</button></div></div>
+      {view === "agenda" ? <div className="agenda-list">{days.filter(day => byDay[day].length).map(day => <section key={day}><h3>{new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }).format(dateFromKey(day))}</h3>{byDay[day].map(session => <article key={session.id}><div className="agenda-time"><time>{time(session.start)}</time><span>{durationLabel((new Date(session.end).getTime() - new Date(session.start).getTime()) / 60_000)}</span></div><div><strong>{session.title}</strong><p>{session.course}</p></div><small>{session.status === "rescheduled" ? "Rescheduled" : session.status === "calendar" ? "In calendar" : "For review"}</small></article>)}</section>)}</div> : <>
       <label className="day-selector">
         <span>Study day</span>
         <select value={selectedDay} onChange={(event) => setSelectedDay(event.target.value)}>
           {days.map((day) => <option value={day} key={day}>{new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(dateFromKey(day))}</option>)}
         </select>
       </label>
-      <div className="week-grid" style={{ "--day-count": days.length } as CSSProperties}>
+      <div className="week-scroll"><div className="week-grid" style={{ "--day-count": days.length } as CSSProperties}>
         {days.map((day) => (
           <section className={`day-column ${selectedDay === day ? "active" : ""}`} key={day}>
             <header><strong>{new Intl.DateTimeFormat(undefined, { weekday: "short", timeZone: "UTC" }).format(dateFromKey(day))}</strong><span>{new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" }).format(dateFromKey(day))}</span></header>
@@ -92,7 +98,7 @@ export function WeekLandscape({ sessions }: { sessions: StudySession[] }) {
             </div>
           </section>
         ))}
-      </div>
+      </div></div></>}
     </section>
   );
 }

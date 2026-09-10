@@ -22,14 +22,14 @@ class ModelCallBudget(HookProvider):
             raise ValueError("Advisory request exceeded its model-call budget")
 
 
-def isolated_agent(template: Agent) -> Agent:
+def isolated_agent(template: Agent, *, tools=None) -> Agent:
     """Each advisory invocation starts with empty conversation history and a fresh budget."""
     return Agent(
         name=template.name,
         description=template.description,
         model=template.model,
         system_prompt=template.system_prompt,
-        tools=list(template.tool_registry.registry.values()),
+        tools=list(template.tool_registry.registry.values()) if tools is None else tools,
         callback_handler=None,
         hooks=[ModelCallBudget()],
     )

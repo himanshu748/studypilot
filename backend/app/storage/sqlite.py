@@ -31,13 +31,32 @@ class SQLiteStore:
                 """
             )
 
-    def save_plan(self, plan: StudyPlan) -> None:
+    def save_plan(
+        self, plan: StudyPlan, *, previous: StudyPlan | None = None, calendar: bool = False
+    ) -> None:
         with self._lock, self._connection:
-            self._connection.execute(
-                "INSERT INTO plans(id, document) VALUES (?, ?) "
-                "ON CONFLICT(id) DO UPDATE SET document = excluded.document",
-                (plan.id, plan.model_dump_json()),
-            )
+            if previous is None:
+                self._connection.execute(
+                    "INSERT INTO plans(id, document) VALUES (?, ?) "
+                    "ON CONFLICT(id) DO UPDATE SET document = excluded.document",
+                    (plan.id, plan.model_dump_json()),
+                )
+            else:
+                changed = self._connection.execute(
+                    "UPDATE plans SET document = ? WHERE id = ? AND document = ?",
+                    (plan.model_dump_json(), plan.id, previous.model_dump_json()),
+                )
+                if changed.rowcount != 1:
+                    raise ValueError("plan changed in another request; reopen the saved plan")
+            if calendar:
+                self._write_calendar(plan)
+
+    def list_plans(self) -> list[StudyPlan]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT document FROM plans ORDER BY rowid DESC LIMIT 50"
+            ).fetchall()
+        return [StudyPlan.model_validate_json(row["document"]) for row in rows]
 
     def get_plan(self, plan_id: str) -> StudyPlan | None:
         with self._lock:
@@ -48,21 +67,24 @@ class SQLiteStore:
 
     def write_calendar(self, plan: StudyPlan) -> None:
         with self._lock, self._connection:
-            for session in plan.sessions:
-                event = CalendarEvent(
-                    plan_id=plan.id,
-                    session_id=session.id,
-                    course=session.course,
-                    title=session.title,
-                    start=session.start,
-                    end=session.end,
-                    status="rescheduled" if session.status == "rescheduled" else "calendar",
-                )
-                self._connection.execute(
-                    "INSERT INTO calendar_events(plan_id, session_id, document) VALUES (?, ?, ?) "
-                    "ON CONFLICT(plan_id, session_id) DO UPDATE SET document = excluded.document",
-                    (plan.id, session.id, event.model_dump_json()),
-                )
+            self._write_calendar(plan)
+
+    def _write_calendar(self, plan: StudyPlan) -> None:
+        for session in plan.sessions:
+            event = CalendarEvent(
+                plan_id=plan.id,
+                session_id=session.id,
+                course=session.course,
+                title=session.title,
+                start=session.start,
+                end=session.end,
+                status="rescheduled" if session.status == "rescheduled" else "calendar",
+            )
+            self._connection.execute(
+                "INSERT INTO calendar_events(plan_id, session_id, document) VALUES (?, ?, ?) "
+                "ON CONFLICT(plan_id, session_id) DO UPDATE SET document = excluded.document",
+                (plan.id, session.id, event.model_dump_json()),
+            )
 
     def calendar_events(self, plan_id: str) -> list[CalendarEvent]:
         with self._lock:

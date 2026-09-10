@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
-from app.domain.models import PlanRequest, StudySession
+from app.domain.models import PlanRequest, ProtectedWindow, StudySession
+from app.planning.scheduler import _subtract_protected
 
 
 def replan_session(
@@ -15,20 +16,23 @@ def replan_session(
         raise KeyError(session_id)
     occupied = [session for session in sessions if session.id != session_id]
     duration = timedelta(minutes=target.duration_minutes)
-    for window in sorted(request.availability, key=lambda item: item.start):
-        cursor = max(window.start, target.end)
-        while cursor + duration <= min(window.end, deadline):
-            end = cursor + duration
-            blocked = any(
-                not (end <= item.start or cursor >= item.end) for item in request.protected
+    blocked = [
+        *request.protected,
+        *[
+            ProtectedWindow(start=item.start, end=item.end, label="Scheduled session")
+            for item in occupied
+        ],
+    ]
+    for start, end in _subtract_protected(request.availability, blocked):
+        cursor = max(start, target.end)
+        if cursor + duration <= min(end, deadline):
+            revised = target.model_copy(
+                update={"start": cursor, "end": cursor + duration, "status": "rescheduled"}
             )
-            collision = any(not (end <= item.start or cursor >= item.end) for item in occupied)
-            if not blocked and not collision:
-                revised = target.model_copy(
-                    update={"start": cursor, "end": end, "status": "rescheduled"}
-                )
-                return [revised if session.id == session_id else session for session in sessions]
-            cursor += timedelta(minutes=30)
+            return sorted(
+                [revised if session.id == session_id else session for session in sessions],
+                key=lambda session: session.start,
+            )
     raise ValueError(
         "no open window is available before the assignment deadline; add availability to replan"
     )

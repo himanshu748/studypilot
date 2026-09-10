@@ -12,4 +12,9 @@ def test_health_reports_fixture_mode_without_secrets() -> None:
         "status": "ok",
         "fixture_mode": True,
         "model_configured": False,
+        "runtime_mode": "local",
+        "model_access": "disabled",
+        "storage_mode": "local_sqlite",
+        "aws_calls_enabled": False,
+        "max_request_bytes": 262144,
     }

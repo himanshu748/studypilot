@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Literal, Protocol
 
 from strands import tool
@@ -7,7 +8,7 @@ from app.agent.fixture_model import fixture_advice
 from app.domain.models import PlanEvent, PlanningAdvice, PlanRequest, StudyPlan
 from app.planning.conflicts import detect_conflicts
 from app.planning.replanner import replan_session
-from app.planning.scheduler import build_schedule
+from app.planning.scheduler import ScheduleCapacityError, build_schedule
 from app.storage.sqlite import SQLiteStore
 from app.tools.syllabus import extract_syllabus
 
@@ -59,8 +60,39 @@ class PlanningWorkflow:
             for item_id in dict.fromkeys(advice.priority_item_ids)
             if item_id in by_id
         ]
-        ordered.extend(item for item in confirmed if item.id not in {entry.id for entry in ordered})
-        sessions = build_schedule(ordered, request.availability, request.protected)
+        ranked_ids = {item.id for item in ordered}
+        baseline = sorted(confirmed, key=lambda item: (item.due_at, -item.weight_percent))
+        ordered.extend(item for item in baseline if item.id not in ranked_ids)
+        try:
+            sessions = build_schedule(
+                ordered, request.availability, request.protected, preserve_item_order=True
+            )
+        except ScheduleCapacityError as advisory_error:
+            if ordered == baseline:
+                raise ScheduleCapacityError(
+                    "Validated advisory and deadline/weight orders are identical: "
+                    f"{advisory_error}. No plan was saved."
+                ) from advisory_error
+            try:
+                sessions = build_schedule(baseline, request.availability, request.protected)
+            except ScheduleCapacityError as baseline_error:
+                raise ScheduleCapacityError(
+                    f"Advisory order failed: {advisory_error}. "
+                    f"Deadline/weight order also failed: {baseline_error}. "
+                    "No plan was saved. The planner does not search every possible task order."
+                ) from baseline_error
+            ordering_summary = (
+                "Advisory order was overridden because it could not fit the confirmed tasks. "
+                "Used deadline/weight order within availability, protected time and deadlines."
+            )
+        else:
+            ordering_summary = (
+                "Used validated advisory order; unranked confirmed tasks follow deadline/weight "
+                "order. Availability, protected time and deadlines were preserved."
+                if ranked_ids
+                else "No valid advisory priorities were supplied; used deadline/weight order. "
+                "Availability, protected time and deadlines were preserved."
+            )
         plan = StudyPlan(
             id=f"plan-{uuid.uuid4().hex[:14]}",
             status="waiting_for_approval",
@@ -75,6 +107,7 @@ class PlanningWorkflow:
                     summary=f"Extracted {len(extraction.items)} items",
                 ),
                 PlanEvent(kind="priorities_advised", summary=advice.rationale),
+                PlanEvent(kind="schedule_order_selected", summary=ordering_summary),
                 PlanEvent(kind="schedule_staged", summary=f"Staged {len(sessions)} study sessions"),
                 PlanEvent(kind="approval_required", summary="Calendar write requires approval"),
             ],
@@ -92,10 +125,12 @@ class PlanningWorkflow:
         plan = self.store.get_plan(plan_id)
         if plan is None:
             raise KeyError(plan_id)
-        if plan.status != "waiting_for_approval":
-            raise ValueError("plan is not waiting for approval")
         if approval_id != CALENDAR_APPROVAL_ID:
             raise ValueError("approval id does not match the calendar gate")
+        if plan.status == choice:
+            return plan
+        if plan.status != "waiting_for_approval":
+            raise ValueError("plan is not waiting for approval")
         if choice == "rejected":
             revised = plan.model_copy(
                 update={
@@ -106,7 +141,7 @@ class PlanningWorkflow:
                     ],
                 }
             )
-            self.store.save_plan(revised)
+            self.store.save_plan(revised, previous=plan)
             return revised
         sessions = [session.model_copy(update={"status": "calendar"}) for session in plan.sessions]
         revised = plan.model_copy(
@@ -122,11 +157,12 @@ class PlanningWorkflow:
                 ],
             }
         )
-        self.store.save_plan(revised)
-        self.store.write_calendar(revised)
+        self.store.save_plan(revised, previous=plan, calendar=True)
         return revised
 
-    def mark_missed(self, plan_id: str, session_id: str) -> StudyPlan:
+    def mark_missed(
+        self, plan_id: str, session_id: str, *, expected_start: datetime | None = None
+    ) -> StudyPlan:
         plan = self.store.get_plan(plan_id)
         if plan is None:
             raise KeyError(plan_id)
@@ -135,6 +171,10 @@ class PlanningWorkflow:
         target = next((session for session in plan.sessions if session.id == session_id), None)
         if target is None:
             raise KeyError(session_id)
+        if expected_start is not None and target.start != expected_start:
+            # The client's original session has already moved. Returning the
+            # stored plan makes retries after a lost response non-destructive.
+            return plan
         item = next((item for item in plan.items if item.id == target.academic_item_id), None)
         if item is None or item.due_at is None:
             raise ValueError("confirm the assignment deadline before replanning")
@@ -144,10 +184,12 @@ class PlanningWorkflow:
                 "sessions": sessions,
                 "events": [
                     *plan.events,
-                    PlanEvent(kind="session_replanned", summary="Moved one missed session"),
+                    PlanEvent(
+                        kind="session_replanned",
+                        summary=f"Moved {target.title} from {target.start:%b %d, %H:%M}",
+                    ),
                 ],
             }
         )
-        self.store.save_plan(revised)
-        self.store.write_calendar(revised)
+        self.store.save_plan(revised, previous=plan, calendar=True)
         return revised
