@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { ConnectionDetails } from "../features/connection/ConnectionDetails";
 
-import { createPlan, decidePlan, getDemoRequest, getRuntimeStatus, listPlans, markMissed, type RuntimeStatus } from "../api/client";
+import { createPlan, decidePlan, getDemoRequest, listPlans, markMissed } from "../api/client";
 import type { PlanRequest, StudyPlan } from "../api/types";
 import { CalendarChangeSet } from "../features/approval/CalendarChangeSet";
 import { ConflictInbox } from "../features/conflicts/ConflictInbox";
@@ -31,8 +32,6 @@ export function App() {
   const [saved, setSaved] = useState<StudyPlan[] | null>(null);
   const [retryIntent, setRetryIntent] = useState<RetryIntent | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
-  const [runtimeLoading, setRuntimeLoading] = useState(false);
   const [revisionSource, setRevisionSource] = useState<{ plan: StudyPlan; replanned: boolean } | null>(null);
   const [revising, setRevising] = useState(false);
   const [intakeVersion, setIntakeVersion] = useState(0);
@@ -160,13 +159,6 @@ export function App() {
     catch { if (requestId === historyRequest.current) setUtilityError({ message: "Saved plans unavailable.", retry: () => void loadSaved() }); }
     finally { setHistoryLoading(false); }
   }
-  async function checkRuntime() {
-    setRuntimeLoading(true);
-    setUtilityError(null);
-    try { setRuntime(await getRuntimeStatus()); }
-    catch { setUtilityError({ message: "Connection status unavailable. Check that the local backend is running.", retry: () => void checkRuntime() }); }
-    finally { setRuntimeLoading(false); }
-  }
   function retry() {
     if (retryIntent?.kind === "decide") void decide(retryIntent.choice);
     else if (retryIntent?.kind === "missed") void missed(retryIntent.sessionId);
@@ -205,8 +197,8 @@ export function App() {
         <button type="button" className="theme-button" onClick={toggleTheme} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}><ThemeIcon /></button>
       </header>
 
-      <div className="workspace-tools"><span>{revising ? "Editing a separate copy" : "Personal planner"}</span><button type="button" disabled={runtimeLoading} onClick={checkRuntime}>{runtimeLoading ? "Checking connection…" : "Connection details"}</button><button type="button" disabled={revising || state === "busy" || state === "loading"} onClick={newPlan}>New plan</button><button type="button" disabled={revising || historyLoading || state === "busy" || state === "loading"} onClick={loadSaved}>{historyLoading ? "Loading saved plans…" : "Saved plans"}</button>{plan && !revising && <button type="button" disabled={state === "busy" || state === "loading"} onClick={reviseInputs}>Revise inputs</button>}{plan?.status === "approved" && !revising && <button type="button" onClick={() => downloadCalendar(plan)}>Download calendar</button>}</div>
-      {runtime && <section className="runtime-details" aria-label="Connection details"><div><strong>{runtime.runtime_mode === "local" ? "Local rules-based planning" : `${runtime.runtime_mode === "agentcore" ? "AgentCore" : runtime.runtime_mode === "openai-compatible" ? "External model" : "Bedrock"} configured · inference not verified`}</strong><p>{runtime.runtime_mode === "openai-compatible" ? "Model requests go to your configured endpoint. This health check does not verify inference or billing coverage." : runtime.aws_calls_enabled ? "AWS model calls are enabled by server configuration. This health check does not verify access." : "AWS model calls are disabled. Your plans are processed on this machine."} Plans are stored in local SQLite.</p></div><button type="button" onClick={() => setRuntime(null)}>Close details</button></section>}
+      <div className="workspace-tools"><span>{revising ? "Editing a separate copy" : "Personal planner"}</span><button type="button" disabled={revising || state === "busy" || state === "loading"} onClick={newPlan}>New plan</button><button type="button" disabled={revising || historyLoading || state === "busy" || state === "loading"} onClick={loadSaved}>{historyLoading ? "Loading saved plans…" : "Saved plans"}</button>{plan && !revising && <button type="button" disabled={state === "busy" || state === "loading"} onClick={reviseInputs}>Revise inputs</button>}{plan?.status === "approved" && !revising && <button type="button" onClick={() => downloadCalendar(plan)}>Download calendar</button>}</div>
+      <ConnectionDetails />
       {utilityError && <div className="error-banner" role="alert"><span>{utilityError.message}</span><button type="button" onClick={utilityError.retry}>Retry request</button><button type="button" onClick={() => setUtilityError(null)}>Dismiss</button></div>}
       {saved && <SavedPlans plans={saved} onClose={() => setSaved(null)} onOpen={openPlan} />}
       {error && <div className="error-banner" role="alert"><span><strong>{revising ? "Revision not created. Your inputs are kept below." : "Planning stopped."}</strong> {error}</span>{revising && retryIntent?.kind === "build" ? <button type="submit" form="planner-form">Retry revised plan</button> : <button type="button" onClick={retry}>Retry {retryIntent?.kind === "decide" ? "decision" : retryIntent?.kind === "missed" ? "replanning" : "build"}</button>}</div>}
