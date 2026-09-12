@@ -6,6 +6,7 @@ from strands import tool
 
 from app.agent.fixture_model import fixture_advice
 from app.domain.models import PlanEvent, PlanningAdvice, PlanRequest, StudyPlan
+from app.planning.capacity import check_deadline_capacity
 from app.planning.conflicts import detect_conflicts
 from app.planning.replanner import replan_session
 from app.planning.scheduler import ScheduleCapacityError, build_schedule
@@ -50,6 +51,7 @@ class PlanningWorkflow:
     def create(self, request: PlanRequest) -> StudyPlan:
         extraction = extract_syllabus(request.syllabus)
         confirmed = [item for item in extraction.items if item.due_at]
+        check_deadline_capacity(confirmed, request)
         advice = self.advisor.advise(
             request.syllabus,
             [window.model_dump(mode="json") for window in request.availability],

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { PlanRequest } from "../../api/types";
-import { availableMinutes, durationLabel } from "./timeBudget";
+import { availableMinutes, deadlineBudgets, durationLabel } from "./timeBudget";
+import "./deadlines.css";
 
 type Task = { course: string; title: string; due: string; unresolvedDue?: string; effort: number; weight: number };
 type Window = { start: string; end: string; label?: string };
@@ -40,6 +41,8 @@ export function PlanIntake({ onBuild, onSample, initial, onCancel }: { onBuild: 
   const usableMinutes = availableMinutes(windows, protectedTime.map(w => ({ ...w, label: w.label || "Protected time" })));
   const readyTasks = tasks.filter(task => task.course.trim() && task.title.trim() && task.due).length;
   const unresolvedTasks = tasks.filter(task => !task.due && task.unresolvedDue).length;
+  const deadlines = deadlineBudgets(tasks, windows, protectedTime.map(w => ({ ...w, label: w.label || "Protected time" })));
+  const firstGap = deadlines.find(deadline => deadline.shortfall > 0);
   function submit(event: React.FormEvent) {
     event.preventDefault();
     const allWindows = [...windows, ...protectedTime];
@@ -47,6 +50,7 @@ export function PlanIntake({ onBuild, onSample, initial, onCancel }: { onBuild: 
     const sorted = [...windows].sort((a, b) => a.start.localeCompare(b.start));
     if (sorted.some((w, i) => i > 0 && w.start < sorted[i - 1].end)) { setError("Available time windows overlap. Combine them before planning."); return; }
     if (tasks.some(t => /[\r\n|]/.test(t.title + t.course))) { setError("Course and task names cannot contain line breaks or the | character."); return; }
+    if (firstGap) { setError(`Add ${durationLabel(firstGap.shortfall)} of available time before ${new Date(firstGap.due).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}, or revise the coursework estimates. Later hours cannot cover this deadline. No AI request was sent.`); return; }
     setError("");
     onBuild({ syllabus: tasks.map(t => `## ${t.course.trim()}\n- ${t.title.trim()} | due ${t.due || t.unresolvedDue} | effort ${t.effort}m | weight ${t.weight}%`).join("\n"), availability: windows, protected: protectedTime.map(w => ({ ...w, label: w.label || "Protected time" })) });
   }
@@ -89,10 +93,21 @@ export function PlanIntake({ onBuild, onSample, initial, onCancel }: { onBuild: 
       <h3>Your time budget</h3>
       <dl><div><dt>Coursework ready</dt><dd>{readyTasks} of {tasks.length}</dd></div><div><dt>Study time needed</dt><dd>{durationLabel(requestedMinutes)}</dd></div><div><dt>Available after protection</dt><dd>{durationLabel(usableMinutes)}</dd></div></dl>
       <p className={usableMinutes && usableMinutes < requestedMinutes ? "budget-warning" : "budget-hint"}>{!usableMinutes ? "Add your available hours to see how the week fits." : usableMinutes < requestedMinutes ? `You need ${durationLabel(requestedMinutes - usableMinutes)} more available time for this coursework.` : `${durationLabel(usableMinutes - requestedMinutes)} left for breathing room.`}</p>
-      <p className="budget-note">An overall estimate. Each session still needs to fit before its own deadline.</p>
+      {deadlines.length > 0 && <section className="deadline-budget" aria-label="Deadline time checks">
+        <h4>Before each deadline</h4>
+        <p>Hours later in the week cannot cover earlier work.</p>
+        <ol>{deadlines.map(deadline => <li key={deadline.due} className={deadline.shortfall ? "time-gap" : "time-room"}>
+          <time dateTime={deadline.due}>{new Date(deadline.due).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</time>
+          <strong>{deadline.titles.join(" · ")}</strong>
+          <span>{durationLabel(deadline.needed)} needed cumulatively · {durationLabel(deadline.available)} available</span>
+          <b>{deadline.shortfall ? `${durationLabel(deadline.shortfall)} short before this deadline` : "Time budget fits"}</b>
+        </li>)}</ol>
+        {firstGap && <a href="#availability">Adjust available hours</a>}
+      </section>}
+      <p className="budget-note">Time-budget checks run in this browser, without AI. A fitting budget is not a guaranteed schedule: individual sessions still need to fit.</p>
       {unresolvedTasks > 0 && <p className="budget-warning">{unresolvedTasks} {unresolvedTasks === 1 ? "task needs" : "tasks need"} a confirmed date and will stay unscheduled.</p>}
       <nav aria-label="Planning sections"><a href="#coursework">Coursework</a><a href="#availability">Available hours</a><a href="#protected-time">Protected time</a></nav>
-      <div className="local-processing-note"><strong>Local planning workspace</strong><p>Rules-based scheduling and local storage. No external calendar connection.</p></div>
+      <div className="local-processing-note"><strong>Your calendar stays in your control</strong><p>Review the proposed sessions before approving. No external calendar connection.</p></div>
     </aside>
     </div>
     {!onCancel && <details className="product-sample"><summary>Explore with sample coursework</summary><p>Seeded overloaded semester. Fictional coursework and availability.</p><button type="button" onClick={onSample}>Build this week</button></details>}

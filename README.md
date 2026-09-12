@@ -19,6 +19,7 @@ Students need a way to fit competing deadlines into time they actually have. Stu
 ## What works
 
 - Enter your coursework, effort estimates, study windows and protected time, or load a labeled sample.
+- See cumulative study time needed before each confirmed deadline. Proven shortages stop before model advice; hours after a deadline do not count. Passing this check does not guarantee that every session can fit.
 - Preserve unresolved deadlines until you confirm a date; do not schedule those items prematurely.
 - Review sessions, cited inputs and deadline clusters before writing to the local calendar.
 - Approve an exact plan and download an ICS file. There is no Google or Outlook connection.

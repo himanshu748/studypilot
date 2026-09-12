@@ -1,0 +1,13 @@
+.deadline-budget { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--rule); }
+.deadline-budget h4 { font-size: 15px; margin: 0; }
+.deadline-budget ol { list-style: none; padding: 0; margin: 18px 0 0; }
+.deadline-budget li { display: grid; gap: 6px; padding: 16px 0; border-bottom: 1px solid var(--rule); font-size: 13px; line-height: 1.5; }
+.deadline-budget time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.deadline-budget strong { font-weight: 650; overflow-wrap: anywhere; }
+.deadline-budget span { color: var(--muted); }
+.deadline-budget b { font-weight: 600; color: var(--green-strong); }
+.deadline-budget .time-gap b { color: var(--amber); }
+.deadline-budget a { margin-top: 8px; }
+@media (max-width: 840px) {
+  .deadline-budget ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 0 24px; }
+}

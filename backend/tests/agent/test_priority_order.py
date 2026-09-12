@@ -142,14 +142,9 @@ def test_failure_of_available_orders_does_not_save_a_partial_plan(tmp_path, reve
     ids = [item.id for item in confirmed_items(plan_request)]
     store = RecordingStore(tmp_path / "impossible.sqlite3")
     workflow = PlanningWorkflow(store=store, advisor=FixedAdvisor(ids[::-1] if reverse else ids))
-    with pytest.raises(ScheduleCapacityError, match="insufficient available time") as raised:
+    with pytest.raises(ScheduleCapacityError, match="only 60 are available") as raised:
         workflow.create(plan_request)
-    if reverse:
-        assert "Advisory order failed" in str(raised.value)
-        assert "Deadline/weight order also failed" in str(raised.value)
-        assert "does not search every possible task order" in str(raised.value)
-    else:
-        assert "orders are identical" in str(raised.value)
+    assert "No model advice was requested" in str(raised.value)
     assert store.saves == [] and store.list_plans() == []
     assert store._connection.execute("SELECT COUNT(*) FROM calendar_events").fetchone()[0] == 0
 
