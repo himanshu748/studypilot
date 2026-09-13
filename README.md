@@ -188,6 +188,10 @@ docs/screenshots/        verified running-app captures
 
 This solo project was designed, implemented and tested with Codex as a development collaborator. Codex helped turn the product concept into constrained agent boundaries, tests, a responsive interface and reproducible documentation; all submission claims remain tied to checked-in code or verified behavior.
 
+## September 13 upgrade notes
+
+Read the [September 13 upgrade article on AWS Builder](https://builder.aws.com/content/3JDRj6Q6tozYTzEYjRCRr9TCETM/agents-for-humans-deadline-checks-privacy-previews-and-reviewable-patches) for the deadline checks, redaction preview, and review-evidence changes. The article is also linked in all three Devpost entries.
+
 ## License
 
 Apache-2.0. See `LICENSE`.
